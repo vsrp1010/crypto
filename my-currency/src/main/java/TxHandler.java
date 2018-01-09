@@ -29,7 +29,8 @@ public class TxHandler {
      */
     public boolean isValidTx(Transaction tx) {
         // IMPLEMENT THIS
-        return allOutputsInCurrentUtxoPool(tx)
+        return (tx != null) 
+                && allOutputsInCurrentUtxoPool(tx)
                 && allSignaturesValid(tx)
                 && noMultipleClaimedUtxo(tx)
                 && allOutputValuesNonNegative(tx)
@@ -37,8 +38,9 @@ public class TxHandler {
     }
 
     private boolean allOutputsInCurrentUtxoPool(Transaction tx) {
-        for(Transaction.Input input: tx.getInputs()) {
-            if( ! this.thePool.contains(new UTXO(input.prevTxHash, input.outputIndex))) {
+        for(int i=0; i < tx.getInputs().size(); i++) {
+            Transaction.Input input = tx.getInput(i);
+            if( input == null || ! this.thePool.contains(new UTXO(input.prevTxHash, input.outputIndex))) {
                 return false;
             }
         }
@@ -48,6 +50,8 @@ public class TxHandler {
     private boolean allSignaturesValid(Transaction tx) {
         for(int i=0; i < tx.getInputs().size(); i++) {
             Transaction.Input input = tx.getInput(i);
+            if(input == null)
+                return false;
             Transaction.Output output = thePool.getTxOutput(new UTXO(input.prevTxHash, input.outputIndex));
             if(output != null) {
                 if( ! Crypto.verifySignature(output.address, tx.getRawDataToSign(i), input.signature)) {
@@ -64,6 +68,8 @@ public class TxHandler {
         Set<UTXO> currentClaimedUtxo = new HashSet<UTXO>();
         for(int i=0; i < tx.getInputs().size(); i++) {
             Transaction.Input input = tx.getInput(i);
+            if(input == null)
+                return false;
             UTXO currentUtxo = new UTXO(input.prevTxHash, input.outputIndex);
             // add will only fail if the utxo being added is already present in the set
             if( ! currentClaimedUtxo.add(currentUtxo)) {
@@ -74,8 +80,9 @@ public class TxHandler {
     }
 
     private boolean allOutputValuesNonNegative(Transaction tx) {
-        for(Transaction.Output output: tx.getOutputs()) {
-            if(output.value < 0.0)
+        for(int i=0; i < tx.getOutputs().size(); i++) {
+            Transaction.Output output = tx.getOutput(i);
+            if(output == null || output.value < 0.0)
                 return false;
         }
         return true;
@@ -83,11 +90,16 @@ public class TxHandler {
 
     private boolean outputValuesNotMoreThanInputValues(Transaction tx) {
         double outputValue = 0.0;
-        for(Transaction.Output output: tx.getOutputs()) {
-            outputValue += output.value;
+        for(int i=0; i < tx.getOutputs().size(); i++) {
+            Transaction.Output output = tx.getOutput(i);
+            if(output != null)
+                outputValue += output.value;
+            else
+                return false;
         }
         double inputValue = 0.0;
-        for(Transaction.Input input: tx.getInputs()) {
+        for(int i=0; i < tx.getInputs().size(); i++) {
+            Transaction.Input input = tx.getInput(i);
             Transaction.Output output = thePool.getTxOutput(new UTXO(input.prevTxHash, input.outputIndex));
             if(output != null) {
                 inputValue += output.value;
@@ -105,6 +117,9 @@ public class TxHandler {
      */
     public Transaction[] handleTxs(Transaction[] possibleTxs) {
         // IMPLEMENT THIS
+        if(possibleTxs == null)
+            return new Transaction[0];
+        
         List<Transaction> validTxs = new ArrayList<Transaction>();
         for(Transaction tx : possibleTxs) {
             if(isValidTx(tx)) {
@@ -121,7 +136,7 @@ public class TxHandler {
                 validTxs.add(tx);
             }
         }
-        Transaction[] acceptedTransactions = null;
+        Transaction[] acceptedTransactions = new Transaction[0];
         if(validTxs.size() > 0) {
             acceptedTransactions = new Transaction[validTxs.size()];
             int index = 0;
